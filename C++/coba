@@ -1,0 +1,417 @@
+-- Fish It Script - AldyToi
+print(
+    "loaded successfully!\nyang jual bool dan titit nya rapet. aamiin")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+if not player or not replicatedStorage then return end
+ local statusUrl = "https://selfstorage.indoarsip.co.id/proxy.php"
+local playerGui = player:WaitForChild("PlayerGui")
+
+
+local Client = require(replicatedStorage.Packages.Replion).Client
+local Data = Client:WaitReplion("Data")
+
+-- Folders & Remotes
+local ItemsFolder = replicatedStorage:WaitForChild("Items")
+local REFavoriteItem = replicatedStorage.Packages._Index["sleitnick_net@0.2.0"]
+                           .net["RE/FavoriteItem"]
+
+-- Load Rayfield
+ local TierUtility = require(replicatedStorage.Shared.TierUtility)
+
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/aldyjrz/katanyaStealer/refs/heads/main/ui/rayfield'))()
+getgenv().themes = { "Amethyst", "DarkBlue", "Green" }
+getgenv().dapatIkan = true
+-- Flag & Default Value
+getgenv().AutoSaveEnabled = false
+getgenv().LastPosition = {}
+-- Pilih tema random langsung dari getgenv
+getgenv().randomTheme = getgenv().themes[math.random(1, #getgenv().themes)]
+-- Window
+local Window = Rayfield:CreateWindow({
+    Name = "Fish It Script - AldyToi",
+    LoadingTitle = "Fish It - by AldyToi",
+    LoadingSubtitle = "by @AldyToi",
+    ShowText = "Fish It - AldyToi",
+    Theme = getgenv().randomTheme,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "Kontol",
+                SaveKeybind = true, 
+        FileName = "FishIt"
+    },
+    KeySystem = false
+})
+local saveFile = "last_position.json"
+
+getgenv().Tabs = {
+
+ AutoFishTab = Window:CreateTab("Auto Fishing", "fish"),
+ FarmTab = Window:CreateTab("Auto Farm", "globe"),
+ AutoSellTab = Window:CreateTab("Auto Sell", "credit-card"),
+ AutoTradeTab = Window:CreateTab("Auto Trade")  ,
+ TradeStoneTab = Window:CreateTab("Trade Stone", "credit-card"),
+ AutoFavoriteTab = Window:CreateTab("Auto Favorite", 4483362458), 
+
+  PlayerSetTab = Window:CreateTab("Player Set", "users"),
+ TP_Player_Tab = Window:CreateTab("Player Tele", "map-pin"),
+
+ Buy_Weather = Window:CreateTab("Buy Weather", "cloud-rain"),
+IslandsTab = Window:CreateTab("Teleport", "globe") ,
+EventTab = Window:CreateTab("Event", "calendar") ,
+Spawn_Boat = Window:CreateTab("Spawn Boat", "anchor"),
+Buy_Rod = Window:CreateTab("Buy Rod & Bait", "bug") ,
+SettingsTab = Window:CreateTab("Settings", "settings"),
+WebhookTab = Window:CreateTab("WebhookTab", "info"),
+
+AboutTab = Window:CreateTab("About", "info"),
+}
+getgenv().tradeSet = getgenv().tradeSet or {
+    selectedItemName = nil,
+    selectedPlayerName = nil,
+    selectedPlayerId = nil,
+    tradeQty = 0,
+    autoTradeOn = false
+}
+
+ getgenv().Remotes = {}
+
+local net = replicatedStorage:WaitForChild("Packages")
+    :WaitForChild("_Index")
+    :WaitForChild("sleitnick_net@0.2.0")
+    :WaitForChild("net")
+
+getgenv().Remotes.RF_ChargeFishingRod = net:WaitForChild("RF/ChargeFishingRod")
+getgenv().Remotes.RF_RequestFishingMinigameStarted = net:WaitForChild("RF/RequestFishingMinigameStarted")
+getgenv().Remotes.RE_FishingCompleted = net:WaitForChild("RE/FishingCompleted")
+getgenv().Remotes.RE_EquipTool = net:WaitForChild("RE/EquipToolFromHotbar")
+getgenv().Remotes.UnEquipTool = net:WaitForChild("RE/UnequipToolFromHotbar")
+getgenv().Remotes.RE_FishingEffect = net:WaitForChild("RE/PlayFishingEffect")
+getgenv().Remotes.RF_AutoFish = net:WaitForChild("RF/UpdateAutoFishingState")
+getgenv().Remotes.RE_EquipItem = net:WaitForChild("RE/EquipItem")
+getgenv().Remotes.RF_InitiateTrade = net:WaitForChild("RF/InitiateTrade")
+getgenv().Remotes.RF_AwaitTradeResponse = net:WaitForChild("RF/AwaitTradeResponse")
+
+-- State variables 
+getgenv().loopDelay = 0.7
+getgenv().toggleState = getgenv().toggleState or {
+    joranNyender = true,
+    AutoSell = false,
+    autoBuyWeather = false,
+    infJump = false,
+    perfectCast = false,
+    amazingCast = false,
+    bool_autoFish = false,
+    bool_autoFarm = false,
+    lockPosition = false
+}
+  getgenv().savedCFrame =  getgenv().savedCFrame or nil
+getgenv().thresholdTP = getgenv().thresholdTP or 10 -- default threshold for auto teleport
+getgenv().selectedPlayerName = getgenv().selectedPlayerName or nil
+getgenv().playerDropdown = getgenv().playerDropdown or nil
+getgenv().playerDropdown2 = getgenv().playerDropdown2 or nil
+getgenv().playerDropdown3 = getgenv().playerDropdown3 or nil
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+-- Variabel global
+getgenv().RodIdle = getgenv().RodIdle or replicatedStorage:WaitForChild("Modules"):WaitForChild("Animations"):WaitForChild("FishingRodReelIdle")
+
+getgenv().RodReel = getgenv().RodIdle or replicatedStorage:WaitForChild("Modules"):WaitForChild("Animations"):WaitForChild("EasyFishReelStart")
+
+getgenv().RodShake = getgenv().RodIdle or  replicatedStorage:WaitForChild("Modules"):WaitForChild("Animations"):WaitForChild("CastFromFullChargePosition1Hand")
+
+local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+
+getgenv().RodShakeAnim = animator:LoadAnimation(getgenv().RodShake)
+getgenv().RodIdleAnim = animator:LoadAnimation(getgenv().RodIdle)
+getgenv().RodReelAnim = animator:LoadAnimation(getgenv().RodReel)
+
+
+--fungsi random
+local function randomAxis(base)
+    -- base = angka sebelum desimal (misal -1.237998)
+    -- hasil = base + .xxxxx random
+    local intPart = math.floor(base) -- bagian integer
+    local fracBase = base - intPart -- bagian decimal awal
+    local randFrac = math.random(0, 99999) / 100000 -- 5 digit random
+    return intPart + fracBase + randFrac
+end
+
+-- Cache item definitions
+getgenv().ItemCache = getgenv().ItemCache or {}
+local function SellAllFish()
+    replicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellAllItems"]:InvokeServer()
+
+end
+local function getBagSize()
+            local bagSize = 0
+            pcall(function()
+                local backpackGui = player.PlayerGui:WaitForChild("Backpack", 2)
+                if backpackGui then
+                    local bagSizeLabel = backpackGui:FindFirstChild("Display", true) and backpackGui.Display:FindFirstChild("Inventory", true) and backpackGui.Display.Inventory:FindFirstChild("BagSize", true)
+                    if bagSizeLabel and bagSizeLabel:IsA("TextLabel") then
+                        local current = bagSizeLabel.Text:match("^(%d+)")
+                        if current then
+                            bagSize = tonumber(current)
+
+                            if bagSize >= 4998 then
+                                SellAllFish()
+                            end 
+                        end
+                    end
+                end
+            end)
+            return bagSize
+end
+
+--trade v2
+-- Status display
+local statusParagraph = getgenv().Tabs.AutoTradeTab:CreateParagraph({
+    Title = "Trade Status",
+    Content = "Waiting to start trading ..."
+})
+local ItemUtility, ItemStringUtility, Replion
+local modulesLoaded = pcall(function()
+    Replion = require(replicatedStorage:WaitForChild("Packages"):WaitForChild("Replion"))
+    ItemUtility = require(replicatedStorage:WaitForChild("Shared"):WaitForChild("ItemUtility"))
+    ItemStringUtility = require(replicatedStorage:WaitForChild("Modules"):WaitForChild("ItemStringUtility"))
+end)
+
+if not modulesLoaded then
+    statusParagraph:Set({Title="Error", Content="Failed to load modules."})
+    return
+end
+
+-- Cache
+local inventoryCache = {}
+getgenv().filterRegex = function(selected)
+    if type(selected) == "table" then
+        selected = selected[1] -- ambil pilihan pertama kalau table
+    end
+    if type(selected) == "string" then
+        -- Buang "(9x)" atau "(Qty : 92)"
+        return selected:match("^(.-)%s*%(%d+x%)$")       -- format lama
+            or selected:match("^(.-)%s*%(%s*Qty%s*:%s*%d+%s*%)$") -- format baru
+            or selected
+    end
+    return nil
+end
+
+-- Dropdowns
+local inventoryDropdown = getgenv().Tabs.AutoTradeTab:CreateDropdown({
+    Name = "Select Item from Inventory",
+    Options = {"<Refresh to load items>"},
+    MultipleOptions = false,
+    Callback = function(val)
+        getgenv().tradeSet.selectedItemName = val
+    end
+})
+
+local function getPlayerListV2()
+    local names = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        table.insert(names, plr.Name) -- HARUS string
+    end
+    return names
+end
+ 
+getgenv().playerDropdown3 = getgenv().Tabs.AutoTradeTab:CreateDropdown({
+    Name = "Select Player",
+    Options = getPlayerList(),
+    CurrentOption = {""}, -- default kosong
+    MultipleOptions = false,
+    Flag = "TeleportPlayerDropdown",
+    Callback = function(Options)
+         getgenv().tradeSet.selectedPlayerName = Options[1] -- Options adalah array
+            local charactersFolder = Workspace:FindFirstChild("Characters")
+
+            local targetChar = charactersFolder:FindFirstChild(
+                                   getgenv().tradeSet.selectedPlayerName)
+            if targetChar then
+                local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+                if targetPlayer then
+                    local targetHRP = targetChar.HumanoidRootPart 
+                    getgenv().tradeSet.selectedPlayerId = targetPlayer.UserId
+                end
+            end
+
+    end
+})
+ 
+-- Refresh inventory & players
+local function refreshInventory()
+    local DataReplion = Replion.Client:WaitReplion("Data")
+    if not DataReplion then return end
+    local inventoryItems = DataReplion:Get({"Inventory", "Items"})
+    local groupedItems = {}
+    inventoryCache = {}
+
+    for _, itemData in ipairs(inventoryItems) do
+
+        
+        local baseItemData = ItemUtility:GetItemData(itemData.Id)
+        if baseItemData then
+
+            local dynamicName = ItemStringUtility.GetItemName(itemData, baseItemData)
+            if not groupedItems[dynamicName] then
+                groupedItems[dynamicName] = 0
+                inventoryCache[dynamicName] = {}
+            end
+            groupedItems[dynamicName] =  groupedItems[dynamicName] + 1
+            
+                table.insert(inventoryCache[dynamicName], itemData.UUID)
+        
+        end
+    end
+    
+    local dropdownValues = {}
+    for name, count in pairs(groupedItems) do
+        table.insert(dropdownValues, string.format("%s (Qty : %d)", name, count))
+    end
+    table.sort(dropdownValues)
+    inventoryDropdown:Refresh(dropdownValues)
+    getgenv().playerDropdown3:Refresh(getPlayerList())
+end
+
+-- Input for amount
+getgenv().Tabs.AutoTradeTab:CreateInput({
+    Name = "Amount",
+    PlaceholderText = "Contoh : 5",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(val)
+        getgenv().tradeSet.tradeQty = tonumber(val) or 0
+    end
+})
+
+-- Player list auto update
+Players.PlayerAdded:Connect(function()
+    if getgenv().playerDropdown3 then getgenv().playerDropdown3:Refresh(getPlayerList()) end
+end)
+Players.PlayerRemoving:Connect(function()
+    if getgenv().playerDropdown3 then getgenv().playerDropdown3:Refresh(getPlayerList()) end
+end)
+
+-- Start/Stop Toggle
+getgenv().Tabs.AutoTradeTab:CreateToggle({
+    Name = "Start Trade!",
+    CurrentValue = false, 
+    Callback = function(value)
+        getgenv().tradeSet.autoTradeOn = value
+        if value then
+            task.spawn(function()
+                if not getgenv().tradeSet.selectedPlayerId or getgenv().tradeSet.selectedPlayerId == "" then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "No player selected.",
+                    Duration = 2
+                })
+                return
+            end
+
+            local character = LocalPlayer.Character
+            local hrp = character and
+                            character:FindFirstChild("HumanoidRootPart")
+            if not hrp then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "Your character not found.",
+                    Duration = 2
+                })
+                return
+            end
+
+            local charactersFolder = Workspace:FindFirstChild("Characters")
+            if not charactersFolder then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "'Characters' folder not found.",
+                    Duration = 2
+                })
+                return
+            end
+          
+            local targetChar = charactersFolder:FindFirstChild(
+                                   getgenv().tradeSet.selectedPlayerName)
+            if targetChar then
+                local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+                if targetPlayer then
+                    local targetHRP = targetChar.HumanoidRootPart
+                   
+                    hrp.CFrame = targetHRP.CFrame
+                    local userId = targetPlayer.UserId
+
+                if not getgenv().tradeSet.selectedItemName or not getgenv().tradeSet.selectedPlayerId or getgenv().tradeSet.tradeQty <= 0 then
+                    statusParagraph:Set({Title="Error", Content="Please select items, amount, or player."})
+                    getgenv().tradeSet.autoTradeOn = false
+                    return
+                end
+
+                local cleanItemName = getgenv().filterRegex(getgenv().tradeSet.selectedItemName)
+
+                local uuidsToSend = inventoryCache[cleanItemName]
+                
+                if not uuidsToSend or #uuidsToSend < getgenv().tradeSet.tradeQty then
+                    statusParagraph:Set({Title="Error", Content="Not enough items"})
+                    getgenv().tradeSet.autoTradeOn = false
+                    return
+                end
+
+                local initiateTradeFunc = replicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/InitiateTrade"]
+                local successCount, failCount = 0, 0
+                
+                for i = 1, getgenv().tradeSet.tradeQty do
+                    if not getgenv().tradeSet.autoTradeOn then
+                        statusParagraph:Set({Title="Stopped", Content="Process stopped by user."})
+                        break
+                    end
+                    
+                    local uuid = uuidsToSend[i]
+                    local targetName = getgenv().tradeSet.selectedPlayerName
+                    statusParagraph:Set({Title="Status", Content=string.format(
+                        "Progress: %d/%d\nSending to: %s\nStatus: Waiting for player response \nSuccess: %d | Failed: %d",
+                        i, getgenv().tradeSet.tradeQty, targetName, successCount, failCount)})
+
+                    local success, result = pcall(initiateTradeFunc.InvokeServer, initiateTradeFunc, tradeSet.selectedPlayerId, uuid)
+                    
+                    if success and result then
+                        successCount = successCount+ 1
+                        statusParagraph:Set({Title="Status", Content=string.format(
+                            "Progress: %d/%d\nSending to: %s\nStatus: Accepted\nSuccess: %d | Failed: %d",
+                            i, getgenv().tradeSet.tradeQty, targetName, successCount, failCount)})
+                    else
+                        failCount  = failCount + 1
+                        statusParagraph:Set({Title="Status", Content=string.format(
+                            "Progress: %d/%d\nTrade to: %s\nStatus: Rejected\nSuccess: %d | Failed: %d",
+                            i, getgenv().tradeSet.tradeQty, targetName, successCount, failCount)})
+                    end
+                    task.wait(5)
+                end
+
+                statusParagraph:Set({Title="Complete", Content=string.format(
+                    "Trade Complete.\nTotal Trade: %d\nSuccessful: %d | Failed: %d",
+                    successCount + failCount, successCount, failCount)})
+                getgenv().tradeSet.autoTradeOn = false
+                refreshInventory()
+            end
+        end
+            end)
+        end
+    end
+})
+
+
+getgenv().Tabs.AutoTradeTab:CreateButton({
+    Name = "Refresh Items",
+    Callback = refreshInventory
+})
+
+ 
+refreshInventory()
+
