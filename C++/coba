@@ -1,6 +1,4 @@
--- Fish It Script - AldyToi
-print(
-    "loaded successfully!\nyang jual bool dan titit nya rapet. aamiin")
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
