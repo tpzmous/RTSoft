@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -51,23 +50,9 @@ local saveFile = "last_position.json"
 
 getgenv().Tabs = {
 
- AutoFishTab = Window:CreateTab("Auto Fishing", "fish"),
- FarmTab = Window:CreateTab("Auto Farm", "globe"),
- AutoSellTab = Window:CreateTab("Auto Sell", "credit-card"),
  AutoTradeTab = Window:CreateTab("Auto Trade")  ,
  TradeStoneTab = Window:CreateTab("Trade Stone", "credit-card"),
- AutoFavoriteTab = Window:CreateTab("Auto Favorite", 4483362458), 
 
-  PlayerSetTab = Window:CreateTab("Player Set", "users"),
- TP_Player_Tab = Window:CreateTab("Player Tele", "map-pin"),
-
- Buy_Weather = Window:CreateTab("Buy Weather", "cloud-rain"),
-IslandsTab = Window:CreateTab("Teleport", "globe") ,
-EventTab = Window:CreateTab("Event", "calendar") ,
-Spawn_Boat = Window:CreateTab("Spawn Boat", "anchor"),
-Buy_Rod = Window:CreateTab("Buy Rod & Bait", "bug") ,
-SettingsTab = Window:CreateTab("Settings", "settings"),
-WebhookTab = Window:CreateTab("WebhookTab", "info"),
 
 AboutTab = Window:CreateTab("About", "info"),
 }
@@ -141,33 +126,194 @@ local function randomAxis(base)
     local randFrac = math.random(0, 99999) / 100000 -- 5 digit random
     return intPart + fracBase + randFrac
 end
-
--- Cache item definitions
-getgenv().ItemCache = getgenv().ItemCache or {}
-local function SellAllFish()
-    replicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellAllItems"]:InvokeServer()
-
+ 
+-- Ambil daftar nama player selain LocalPlayer
+local function getPlayerList()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(list, p.Name) end
+    end
+    table.sort(list)
+    return list
 end
-local function getBagSize()
-            local bagSize = 0
-            pcall(function()
-                local backpackGui = player.PlayerGui:WaitForChild("Backpack", 2)
-                if backpackGui then
-                    local bagSizeLabel = backpackGui:FindFirstChild("Display", true) and backpackGui.Display:FindFirstChild("Inventory", true) and backpackGui.Display.Inventory:FindFirstChild("BagSize", true)
-                    if bagSizeLabel and bagSizeLabel:IsA("TextLabel") then
-                        local current = bagSizeLabel.Text:match("^(%d+)")
-                        if current then
-                            bagSize = tonumber(current)
 
-                            if bagSize >= 4998 then
-                                SellAllFish()
-                            end 
-                        end
+getgenv().Tabs.TradeStoneTab:CreateParagraph({
+    Title = "Auto Trade Stone",
+    Content = "Kosongkan Toolbar dibawah, lalu pilih pemain, pilih jumlah dan klik tombol trade"
+})
+
+
+-- Dropdown memilih pemain
+
+local selectedPlayerName2 = nil
+getgenv().playerDropdown2 = getgenv().Tabs.TradeStoneTab:CreateDropdown({
+    Name = "Select Player",
+    Options = getPlayerList(),
+    CurrentOption = {""}, -- default kosong
+    MultipleOptions = false,
+    Flag = "TeleportPlayerDropdown",
+    Callback = function(Options)
+        selectedPlayerName2 = Options[1] -- Options adalah array
+    end
+})
+
+-- Ambil semua UUID dari item dengan id = 10
+local function getItemsId10()
+    local inv = Data:Get("Inventory")
+    if not inv or not inv.Items then return {} end
+
+    local filtered = {}
+    for _, itemData in pairs(inv.Items) do
+        if type(itemData) == "table" and itemData.Id == 10 then
+            table.insert(filtered, itemData.UUID)
+        end
+    end
+    return filtered
+end
+-- Input untuk jumlah loop
+getgenv().loopCount = getgenv().loopCount or 1
+getgenv().Tabs.TradeStoneTab:CreateInput({
+    Name = "Jumlah Batu",
+    PlaceholderText = "Masukkan angka",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then
+            getgenv().loopCount = num
+            print("Jumlah loop di-set ke:", loopCount)
+        else
+            warn("Input bukan angka")
+        end
+    end
+})
+
+local progressParagraph = getgenv().Tabs.TradeStoneTab:CreateParagraph({
+    Title = "Progress Trade",
+    Content = "Belum mulai trading..."
+})
+
+local successCount, failCount = 0, 0
+
+getgenv().Tabs.TradeStoneTab:CreateButton({
+    Name = "Start Trade",
+    Callback = function()
+        pcall(function()
+
+            
+            if not selectedPlayerName2 or selectedPlayerName2 == "" then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "No player selected.",
+                    Duration = 2
+                })
+                return
+            end
+
+            local character = LocalPlayer.Character
+            local hrp = character and
+                            character:FindFirstChild("HumanoidRootPart")
+            if not hrp then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "Your character not found.",
+                    Duration = 2
+                })
+                return
+            end
+
+            local charactersFolder = Workspace:FindFirstChild("Characters")
+            if not charactersFolder then
+                Rayfield:Notify({
+                    Title = "❌ Error",
+                    Content = "'Characters' folder not found.",
+                    Duration = 2
+                })
+                return
+            end
+          
+            local targetChar = charactersFolder:FindFirstChild(
+                                   selectedPlayerName2)
+            if targetChar then
+                local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+                if targetPlayer then
+                    local targetHRP = targetChar.HumanoidRootPart
+                   
+                    hrp.CFrame = targetHRP.CFrame
+                    local userId = targetPlayer.UserId
+                    local itemsToTrade = getItemsId10()
+                    local total = #itemsToTrade
+                    print("Jumlah item stone saat ini :", total)
+                    
+                    if total == 0 then
+                        warn("Tidak ada batu untuk ditrade")
+                        return
                     end
-                end
-            end)
-            return bagSize
+                    successCount, failCount = 0, 0
+                   for i = 1, getgenv().loopCount do
+    local uuid = itemsToTrade[((i - 1) % total) + 1] -- cycling item
+
+    progressParagraph:Set({
+        Title = "Progress Trade",
+        Content = string.format("Sedang trading %d/%d\nSukses: %d | Gagal: %d | Sisa: %d" ,
+            i, getgenv().loopCount, successCount, failCount, total)
+    })
+
+    -- Gunakan pcall + InvokeServer biar dapat return status
+    local success, result = pcall(function()
+        getgenv().Remotes.RE_EquipItem:FireServer(uuid, "EnchantStones")
+        task.wait(0.5)
+        getgenv().Remotes.RE_EquipTool:FireServer(2)
+        task.wait(0.2)
+        return getgenv().Remotes.RF_InitiateTrade:InvokeServer(userId, uuid)
+    end)
+
+    if success and result then
+        successCount = successCount + 1
+        print(string.format("[SUKSES] Auto Trade %d/%d | Sukses:%d | Gagal:%d",
+            i, getgenv().loopCount, successCount, failCount))
+    else
+        failCount = failCount + 1
+        print(string.format("[GAGAL] Auto Trade %d/%d | Sukses:%d | Gagal:%d",
+            i, getgenv().loopCount, successCount, failCount))
+    end
+
+    -- Update lagi setelah status diketahui
+    progressParagraph:Set({
+        Title = "Progress Trade Batu",
+        Content = string.format("Progress: %d/%d\n✅ Sukses: %d | ❌ Gagal: %d  |  Sisa: %d",
+            i, getgenv().loopCount, successCount, failCount, total)
+    })
+
+    task.wait(6)
 end
+
+                print("Trading Complete:", getgenv().loopCount, " Sukses:", successCount, " Gagal:", failCount)
+                else
+                    warn("No player found for this character")
+                end
+            else
+                warn("Character not found")
+            end
+        end)
+    end
+})
+
+getgenv().Tabs.TradeStoneTab:CreateButton({
+    Name = "🔄 Refresh Player List",
+    Callback = function()
+        local updatedList = getPlayerList()
+        getgenv().playerDropdown2:Refresh(updatedList)
+
+        -- Validasi dan set ulang jika masih ada
+        if selectedPlayerName2 and table.find(updatedList, selectedPlayerName2) then
+            getgenv().playerDropdown2:Set({selectedPlayerName2})
+        else
+            selectedPlayerName2 = nil
+            -- Jangan set apapun jika kosong
+            getgenv().playerDropdown2:Set({"<None>"}) -- atau string dummy lain, hindari nil
+        end
+    end
+})
 
 --trade v2
 -- Status display
@@ -412,4 +558,3 @@ getgenv().Tabs.AutoTradeTab:CreateButton({
 
  
 refreshInventory()
-
